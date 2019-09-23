@@ -39,8 +39,18 @@ public abstract class LifecycleMBeanBase extends LifecycleBase
 
 
     /* Cache components of the MBean registration. */
+
+    /**
+     * jmx的域，默认使用Service的name，即"Catalina"
+     */
     private String domain = null;
+    /**
+     * 用于标识一个MBean的对象名称，也可以根据这个name来查找MBean
+     */
     private ObjectName oname = null;
+    /**
+     * jmx的核心组件，提供代理端操作MBean的接口，提供了创建、注册、删除MBean的接口，它由MBeanServerFactory创建
+     */
     @Deprecated
     protected MBeanServer mserver = null;
 
@@ -51,6 +61,8 @@ public abstract class LifecycleMBeanBase extends LifecycleBase
      */
     @Override
     protected void initInternal() throws LifecycleException {
+        // 主要用于JMX的监控 具体实现还得靠子类
+
         // If oname is not null then registration has already happened via
         // preRegister().
         if (oname == null) {
@@ -68,6 +80,7 @@ public abstract class LifecycleMBeanBase extends LifecycleBase
      */
     @Override
     protected void destroyInternal() throws LifecycleException {
+        // 主要用于JMX的监控 具体实现还得靠子类
         unregister(oname);
     }
 
