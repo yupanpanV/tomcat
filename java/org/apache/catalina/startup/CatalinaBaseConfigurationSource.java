@@ -29,12 +29,25 @@ import java.nio.file.InvalidPathException;
 import org.apache.tomcat.util.file.ConfigurationSource;
 import org.apache.tomcat.util.res.StringManager;
 
+/**
+ *   Catalina 基本配置源
+ */
 public class CatalinaBaseConfigurationSource implements ConfigurationSource {
 
     protected static final StringManager sm = StringManager.getManager(Constants.Package);
 
+    /**
+     *   server.xml 的路径
+     */
     private final String serverXmlPath;
+    /**
+     *  /Users/pan/Desktop/hljx/test/tomcat-1/tomcat
+     */
     private final File catalinaBaseFile;
+
+    /**
+     *  file:/Users/pan/Desktop/hljx/test/tomcat-1/tomcat/
+     */
     private final URI catalinaBaseUri;
 
     public CatalinaBaseConfigurationSource(File catalinaBaseFile, String serverXmlPath) {

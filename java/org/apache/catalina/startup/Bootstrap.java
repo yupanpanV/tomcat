@@ -57,7 +57,13 @@ public final class Bootstrap {
     private static final Object daemonLock = new Object();
     private static volatile Bootstrap daemon = null;
 
+    /**
+     * /Users/pan/Desktop/hljx/test/tomcat-1/tomcat
+     */
     private static final File catalinaBaseFile;
+    /**
+     * /Users/pan/Desktop/hljx/test/tomcat-1/tomcat
+     */
     private static final File catalinaHomeFile;
 
     private static final Pattern PATH_PATTERN = Pattern.compile("(\".*?\")|(([^,])*)");
@@ -130,6 +136,7 @@ public final class Bootstrap {
 
     /**
      * Daemon reference.
+     * 其实就是 org.apache.catalina.startup.Catalina 这个实例
      */
     private Object catalinaDaemon = null;
 
@@ -250,28 +257,40 @@ public final class Bootstrap {
      */
     public void init() throws Exception {
 
+        // 初始化commonLoader、catalinaLoader、sharedLoader
         initClassLoaders();
 
+        // 暂时不知道干嘛的
         Thread.currentThread().setContextClassLoader(catalinaLoader);
-
         SecurityClassLoad.securityClassLoad(catalinaLoader);
 
         // Load our startup class and call its process() method
         if (log.isDebugEnabled())
             log.debug("Loading startup class");
+
+        // 加载 Catalina 这个类
         Class<?> startupClass = catalinaLoader.loadClass("org.apache.catalina.startup.Catalina");
+        // 反射创建这个类
         Object startupInstance = startupClass.getConstructor().newInstance();
 
         // Set the shared extensions class loader
         if (log.isDebugEnabled())
             log.debug("Setting startup class properties");
+
+        // 反射调用setParentClassLoader方法，设置其parentClassLoader为sharedLoader
         String methodName = "setParentClassLoader";
+
+        // 构建 setParentClassLoader 方法的参数类型数组
         Class<?> paramTypes[] = new Class[1];
         paramTypes[0] = Class.forName("java.lang.ClassLoader");
+        // 构建 setParentClassLoader 方法的参数数组
         Object paramValues[] = new Object[1];
         paramValues[0] = sharedLoader;
+
+        // 反射获取 setParentClassLoader 方法
         Method method =
             startupInstance.getClass().getMethod(methodName, paramTypes);
+        // 调用 setParentClassLoader 方法
         method.invoke(startupInstance, paramValues);
 
         catalinaDaemon = startupInstance;
@@ -279,7 +298,9 @@ public final class Bootstrap {
 
 
     /**
-     * Load daemon.
+     * 实际上就是调用 org.apache.catalina.startup.Catalina 的load方法
+     *
+     * arguments 为main方法传递的参数
      */
     private void load(String[] arguments) throws Exception {
 
@@ -336,10 +357,13 @@ public final class Bootstrap {
      * @throws Exception Fatal start error
      */
     public void start() throws Exception {
+
+        // 如果还没有 Catalina 这个实例  就调用初始化方法
         if (catalinaDaemon == null) {
             init();
         }
 
+        // 调动 Catalina 的 start 方法
         Method method = catalinaDaemon.getClass().getMethod("start", (Class [])null);
         method.invoke(catalinaDaemon, (Object [])null);
     }
@@ -350,6 +374,7 @@ public final class Bootstrap {
      * @throws Exception Fatal stop error
      */
     public void stop() throws Exception {
+        // 调用 Catalina 的 stop 方法
         Method method = catalinaDaemon.getClass().getMethod("stop", (Class []) null);
         method.invoke(catalinaDaemon, (Object []) null);
     }
@@ -398,7 +423,7 @@ public final class Bootstrap {
      */
     public void setAwait(boolean await)
         throws Exception {
-
+        // 调用 Catalina 的 setAwait 方法
         Class<?> paramTypes[] = new Class[1];
         paramTypes[0] = Boolean.TYPE;
         Object paramValues[] = new Object[1];
@@ -441,6 +466,7 @@ public final class Bootstrap {
                 // Don't set daemon until init() has completed
                 Bootstrap bootstrap = new Bootstrap();
                 try {
+                    // 初始化
                     bootstrap.init();
                 } catch (Throwable t) {
                     handleThrowable(t);
@@ -462,24 +488,35 @@ public final class Bootstrap {
                 command = args[args.length - 1];
             }
 
+
             if (command.equals("startd")) {
+                // 如果命令是 startd 则依次执行 Bootstrap 的load方法 start方法
                 args[args.length - 1] = "start";
                 daemon.load(args);
                 daemon.start();
             } else if (command.equals("stopd")) {
+                // 如果命令是 stopd 则执行 Bootstrap 的 stop方法
                 args[args.length - 1] = "stop";
                 daemon.stop();
             } else if (command.equals("start")) {
+                // 如果命令是 start 则先调用 catalinaDaemon 的 setAwait方法
+                // 然后再调用 Bootstrap 的load方法 start方法
                 daemon.setAwait(true);
                 daemon.load(args);
                 daemon.start();
+
+                // 如果没有成功启动sever 就退出
                 if (null == daemon.getServer()) {
                     System.exit(1);
                 }
             } else if (command.equals("stop")) {
+                // 如果命令是 stop 则执行 Bootstrap 的 stopServer方法
                 daemon.stopServer(args);
             } else if (command.equals("configtest")) {
+                // 如果命令是 configtest 则执行 Bootstrap 的 load
                 daemon.load(args);
+
+                // 如果没有成功启动sever 就退出
                 if (null == daemon.getServer()) {
                     System.exit(1);
                 }

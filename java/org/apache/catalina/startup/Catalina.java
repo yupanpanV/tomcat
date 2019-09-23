@@ -70,6 +70,8 @@ import org.xml.sax.InputSource;
  *
  * @author Craig R. McClanahan
  * @author Remy Maucherat
+ *
+ *  启动类
  */
 public class Catalina {
 
@@ -90,7 +92,7 @@ public class Catalina {
     protected boolean await = false;
 
     /**
-     * Pathname to the server configuration file.
+     * conf/server.xml
      */
     protected String configFile = SERVER_XML;
 
@@ -147,6 +149,9 @@ public class Catalina {
     }
 
 
+    /**
+     * 获取server.xml 的路径
+     */
     public String getConfigFile() {
         return configFile;
     }
@@ -259,7 +264,7 @@ public class Catalina {
 
 
     /**
-     * Return a File object representing our configuration file.
+     * 返回 conf/server.xml 的文件抽象
      * @return the main configuration file
      */
     protected File configFile() {
@@ -544,25 +549,38 @@ public class Catalina {
         }
         loaded = true;
 
+        // 记录启动时间
         long t1 = System.nanoTime();
 
+        // 检查  java.io.tmpdir 这个属性是否存在
         initDirs();
 
         // Before digester - it may be needed
+        // // 初始化jmx的环境变量
         initNaming();
 
         // Set configuration source
+        // 设置配置源
         ConfigFileLoader.setSource(new CatalinaBaseConfigurationSource(Bootstrap.getCatalinaBaseFile(), getConfigFile()));
+
+        // server.xml 文件的抽象
         File file = configFile();
 
         // Create and execute our Digester
+        // 定义解析server.xml的配置，告诉Digester哪个xml标签应该解析成什么类
         Digester digester = createStartDigester();
 
-        try (ConfigurationSource.Resource resource = ConfigFileLoader.getSource().getServerXml()) {
+        try (
+                // 创建server.xml资源
+                ConfigurationSource.Resource resource = ConfigFileLoader.getSource().getServerXml()
+        ) {
+            // 加载 server.xml
             InputStream inputStream = resource.getInputStream();
             InputSource inputSource = new InputSource(resource.getURI().toURL().toString());
             inputSource.setByteStream(inputStream);
             digester.push(this);
+            // 解析 server.xml
+            // 解析过程会实例化各个组件，比如Server、Container、Connector等
             digester.parse(inputSource);
         } catch (Exception e) {
             log.warn(sm.getString("catalina.configFail", file.getAbsolutePath()), e);
@@ -572,6 +590,7 @@ public class Catalina {
             return;
         }
 
+        // 给 Server 赋值 Catalina 的引用
         getServer().setCatalina(this);
         getServer().setCatalinaHome(Bootstrap.getCatalinaHomeFile());
         getServer().setCatalinaBase(Bootstrap.getCatalinaBaseFile());
@@ -580,6 +599,7 @@ public class Catalina {
         initStreams();
 
         // Start the new server
+        // Server 初始化
         try {
             getServer().init();
         } catch (LifecycleException e) {
@@ -590,6 +610,8 @@ public class Catalina {
             }
         }
 
+
+        // 打印Server 加载时间
         long t2 = System.nanoTime();
         if(log.isInfoEnabled()) {
             log.info(sm.getString("catalina.init", Long.valueOf((t2 - t1) / 1000000)));
@@ -617,18 +639,22 @@ public class Catalina {
      */
     public void start() {
 
+        // 如果持有的server实例为空 就解析server.xml 创建一个
         if (getServer() == null) {
             load();
         }
 
+        // 创建失败报错退出
         if (getServer() == null) {
             log.fatal(sm.getString("catalina.noServer"));
             return;
         }
 
+
         long t1 = System.nanoTime();
 
         // Start the new server
+        // 启动server
         try {
             getServer().start();
         } catch (LifecycleException e) {
@@ -641,14 +667,17 @@ public class Catalina {
             return;
         }
 
+        // 打印启动时间
         long t2 = System.nanoTime();
         if(log.isInfoEnabled()) {
             log.info(sm.getString("catalina.startup", Long.valueOf((t2 - t1) / 1000000)));
         }
 
         // Register shutdown hook
+        // 创建并注册关闭钩子
         if (useShutdownHook) {
             if (shutdownHook == null) {
+                // 关闭钩子其实就只调用了Server的stop方法
                 shutdownHook = new CatalinaShutdownHook();
             }
             Runtime.getRuntime().addShutdownHook(shutdownHook);
@@ -663,6 +692,7 @@ public class Catalina {
             }
         }
 
+        // 用await方法监听 停止请求
         if (await) {
             await();
             stop();
@@ -679,6 +709,7 @@ public class Catalina {
             // Remove the ShutdownHook first so that server.stop()
             // doesn't get invoked twice
             if (useShutdownHook) {
+                // 移除 关闭钩子
                 Runtime.getRuntime().removeShutdownHook(shutdownHook);
 
                 // If JULI is being used, re-enable JULI's shutdown to ensure
@@ -696,6 +727,7 @@ public class Catalina {
         }
 
         // Shut down the server
+        // 关闭 Server
         try {
             Server s = getServer();
             LifecycleState state = s.getState();
@@ -703,7 +735,9 @@ public class Catalina {
                     && LifecycleState.DESTROYED.compareTo(state) >= 0) {
                 // Nothing to do. stop() was already called
             } else {
+                // 调用 Server stop 方法
                 s.stop();
+                // 调用 Server destroy 方法
                 s.destroy();
             }
         } catch (LifecycleException e) {
