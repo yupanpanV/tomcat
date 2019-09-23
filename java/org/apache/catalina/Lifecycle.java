@@ -176,6 +176,8 @@ public interface Lifecycle {
     /**
      * Add a LifecycleEvent listener to this component.
      *
+     * 注册一个 生命周期观察者
+     *
      * @param listener The listener to add
      */
     public void addLifecycleListener(LifecycleListener listener);
@@ -183,6 +185,8 @@ public interface Lifecycle {
 
     /**
      * Get the life cycle listeners associated with this life cycle.
+     *
+     * 返回所有的生命周期观察者
      *
      * @return An array containing the life cycle listeners associated with this
      *         life cycle. If this component has no listeners registered, a
@@ -193,6 +197,8 @@ public interface Lifecycle {
 
     /**
      * Remove a LifecycleEvent listener from this component.
+     *
+     * 移除指定的生命周期观察者
      *
      * @param listener The listener to remove
      */
@@ -208,12 +214,15 @@ public interface Lifecycle {
      *                   initialization.</li>
      * </ol>
      *
+     * 初始化  会触发 INIT_EVENT 事件
+     *
      * @exception LifecycleException if this component detects a fatal error
      *  that prevents this component from being used
      */
     public void init() throws LifecycleException;
 
     /**
+     * 在组件投入使用之前调用该方法，先后会发出以下事件：BEFORE_START_EVENT、START_EVENT、AFTER_START_EVENT
      * Prepare for the beginning of active use of the public methods other than
      * property getters/setters and life cycle methods of this component. This
      * method should be called before any of the public methods other than
@@ -272,6 +281,8 @@ public interface Lifecycle {
      *
      * @exception LifecycleException if this component detects a fatal error
      *  that needs to be reported
+     *
+     *  组件停止工作
      */
     public void stop() throws LifecycleException;
 
@@ -285,11 +296,15 @@ public interface Lifecycle {
      *
      * @exception LifecycleException if this component detects a fatal error
      *  that prevents this component from being used
+     *
+     *  销毁组件时被调用
      */
     public void destroy() throws LifecycleException;
 
 
     /**
+     *
+     * 获取组件的生命周期状态
      * Obtain the current state of the source component.
      *
      * @return The current state of the source component.
