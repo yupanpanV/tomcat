@@ -159,12 +159,17 @@ public final class StandardServer extends LifecycleMBeanBase implements Server {
 
     /**
      * The property change support for this component.
+     * 用来实现 观察者模式 （监听生命周期）
      */
     final PropertyChangeSupport support = new PropertyChangeSupport(this);
 
     private volatile boolean stopAwait = false;
 
+    /**
+     *   上级组件 Catalina
+     */
     private Catalina catalina = null;
+
 
     private ClassLoader parentClassLoader = null;
 
@@ -186,6 +191,7 @@ public final class StandardServer extends LifecycleMBeanBase implements Server {
 
     /**
      * The number of threads available to process utility tasks in this service.
+     * utilityExecutor 的核心线程数
      */
     protected int utilityThreads = 2;
 
@@ -500,7 +506,7 @@ public final class StandardServer extends LifecycleMBeanBase implements Server {
 
     /**
      * Add a new Service to the set of defined Services.
-     *
+     * 添加子组件 Server组件的子组件是 Service组件
      * @param service The Service to be added
      */
     @Override
@@ -509,11 +515,14 @@ public final class StandardServer extends LifecycleMBeanBase implements Server {
         service.setServer(this);
 
         synchronized (servicesLock) {
+            // 数组长度+1 然后把之前的services 复制过来
             Service results[] = new Service[services.length + 1];
             System.arraycopy(services, 0, results, 0, services.length);
             results[services.length] = service;
             services = results;
 
+
+            // 启动service
             if (getState().isAvailable()) {
                 try {
                     service.start();
@@ -523,6 +532,7 @@ public final class StandardServer extends LifecycleMBeanBase implements Server {
             }
 
             // Report this property change to interested listeners
+            // 触发监听事件
             support.firePropertyChange("service", null, service);
         }
 
@@ -555,6 +565,7 @@ public final class StandardServer extends LifecycleMBeanBase implements Server {
      * This keeps the main thread alive - the thread pool listening for http
      * connections is daemon threads.
      */
+    // todo
     @Override
     public void await() {
         // Negative values - don't wait on port - tomcat is embedded or we just don't like ports
@@ -579,6 +590,7 @@ public final class StandardServer extends LifecycleMBeanBase implements Server {
         }
 
         // Set up a server socket to wait on
+        // 创建一个Socket监听8005端口
         try {
             awaitSocket = new ServerSocket(getPortWithOffset(), 1,
                     InetAddress.getByName(address));
@@ -921,18 +933,23 @@ public final class StandardServer extends LifecycleMBeanBase implements Server {
     @Override
     protected void startInternal() throws LifecycleException {
 
+        // 发送 CONFIGURE_START_EVENT 事件
         fireLifecycleEvent(CONFIGURE_START_EVENT, null);
+        // 更新当前生命周期状态为 STARTING 并触发 STARTING 事件
         setState(LifecycleState.STARTING);
 
+        // 全局命名资源的启动
         globalNamingResources.start();
 
         // Start our defined Services
+        // 依次启动 Services 组件
         synchronized (servicesLock) {
             for (int i = 0; i < services.length; i++) {
                 services[i].start();
             }
         }
 
+        // 开了个定时任务 定时任务里面有开了一个定时任务    不晓得干嘛的
         if (periodicEventDelay > 0) {
             monitorFuture = getUtilityExecutor().scheduleWithFixedDelay(
                     new Runnable() {
@@ -1000,30 +1017,42 @@ public final class StandardServer extends LifecycleMBeanBase implements Server {
     }
 
     /**
-     * Invoke a pre-startup initialization. This is used to allow connectors
-     * to bind to restricted ports under Unix operating environments.
+     *  总的来讲就是创建并注册了一个线程池 然后 初始化 Service 组件
+     *  期间实现了JMX的监控
      */
     @Override
     protected void initInternal() throws LifecycleException {
 
+        // 由父类统一完成JMX的监控
         super.initInternal();
 
+
+        // 生命周期状态改变的事件由父类发送
+
+
         // Initialize utility executor
+        // 初始化 utility 线程池
         reconfigureUtilityExecutor(getUtilityThreadsInternal(utilityThreads));
+        // 注册线程池
         register(utilityExecutor, "type=UtilityExecutor");
 
         // Register global String cache
         // Note although the cache is global, if there are multiple Servers
         // present in the JVM (may happen when embedding) then the same cache
         // will be registered under multiple names
+        // 往jmx中注册全局的String cache，尽管这个cache是全局听，但是如果在同一个jvm中存在多个Server，
+        // 那么则会注册多个不同名字的StringCache，这种情况在内嵌的tomcat中可能会出现
         onameStringCache = register(new StringCache(), "type=StringCache");
 
         // Register the MBeanFactory
+        // JMX 的相关实现
         MBeanFactory factory = new MBeanFactory();
         factory.setContainer(this);
         onameMBeanFactory = register(factory, "type=MBeanFactory");
 
         // Register the naming resources
+        // 初始化NamingResources，就是server.xml中指定的GlobalNamingResources
+        // 暂时没什么卵用
         globalNamingResources.init();
 
         // Populate the extension validator with JARs from common and shared
