@@ -77,9 +77,12 @@ public class Connector extends LifecycleMBeanBase  {
 
 
     public Connector(String protocol) {
+        // 是否使用 apr I/O模型
         boolean aprConnector = AprLifecycleListener.isAprAvailable() &&
                 AprLifecycleListener.getUseAprConnector();
 
+
+        // 确定使用哪种 ProtocolHandler
         if ("HTTP/1.1".equals(protocol) || protocol == null) {
             if (aprConnector) {
                 protocolHandlerClassName = "org.apache.coyote.http11.Http11AprProtocol";
@@ -96,7 +99,7 @@ public class Connector extends LifecycleMBeanBase  {
             protocolHandlerClassName = protocol;
         }
 
-        // Instantiate protocol handler
+        // 实例化 protocolHandler
         ProtocolHandler p = null;
         try {
             Class<?> clazz = Class.forName(protocolHandlerClassName);
@@ -117,13 +120,13 @@ public class Connector extends LifecycleMBeanBase  {
 
 
     /**
-     * The <code>Service</code> we are associated with (if any).
+     *  连接器属于哪个 Service 组件
      */
     protected Service service = null;
 
 
     /**
-     * Do we allow TRACE ?
+     * 是否跟踪
      */
     protected boolean allowTrace = false;
 
@@ -204,8 +207,7 @@ public class Connector extends LifecycleMBeanBase  {
     protected int maxParameterCount = 10000;
 
     /**
-     * Maximum size of a POST which will be automatically parsed by the
-     * container. 2MB by default.
+     * 最大 2MB by default.
      */
     protected int maxPostSize = 2 * 1024 * 1024;
 
@@ -940,14 +942,22 @@ public class Connector extends LifecycleMBeanBase  {
 
         super.initInternal();
 
+        // 连接器 持有三个内部组件 Endpoint、Processor 和 Adapter
+        // Endpoint 和 Processor  组成了 ProtocolHandler
+        // Endpoint 用来处理网络通信  工作在 传输层（TCP层）
+        // Processor 用来实例解析应用层协议 工作在 应用层
+
+        // 必须要有 protocolHandler 组件
         if (protocolHandler == null) {
             throw new LifecycleException(
                     sm.getString("coyoteConnector.protocolHandlerInstantiationFailed"));
         }
 
-        // Initialize adapter
+        // 实例化 Adapter 组件
         adapter = new CoyoteAdapter(this);
         protocolHandler.setAdapter(adapter);
+
+        // 引用Server 组件的 共用线程池
         if (service != null) {
             protocolHandler.setUtilityExecutor(service.getServer().getUtilityExecutor());
         }
@@ -957,6 +967,7 @@ public class Connector extends LifecycleMBeanBase  {
             setParseBodyMethods(getParseBodyMethods());
         }
 
+        // APR I/O 模型相关的依赖检测
         if (protocolHandler.isAprRequired() && !AprLifecycleListener.isInstanceCreated()) {
             throw new LifecycleException(sm.getString("coyoteConnector.protocolHandlerNoAprListener",
                     getProtocolHandlerClassName()));
@@ -976,6 +987,10 @@ public class Connector extends LifecycleMBeanBase  {
             }
         }
 
+
+        // 初始化 protocolHandler 组件
+        // protocolHandler 初始化 EndPoint组件
+        // Processor 组件是懒加载  在运行时创建
         try {
             protocolHandler.init();
         } catch (Exception e) {
@@ -999,8 +1014,10 @@ public class Connector extends LifecycleMBeanBase  {
                     "coyoteConnector.invalidPort", Integer.valueOf(getPortWithOffset())));
         }
 
+        // 更新生命周期状态为 STARTING 并触发 STARTING 事件
         setState(LifecycleState.STARTING);
 
+        // 启动 protocolHandler
         try {
             protocolHandler.start();
         } catch (Exception e) {

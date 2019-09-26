@@ -40,6 +40,8 @@ import org.apache.tomcat.util.res.StringManager;
 /**
  * Provides functionality and attributes common to all supported protocols
  * (currently HTTP and AJP) for processing a single request/response.
+ *
+ *
  */
 public abstract class AbstractProcessor extends AbstractProcessorLight implements ActionHook {
 

@@ -173,6 +173,8 @@ public abstract class AbstractEndpoint<S,U> {
 
     /**
      * Thread used to accept new connections and pass them to worker threads.
+     *
+     * 用来监听socket请求
      */
     protected Acceptor<U> acceptor;
 
@@ -1100,6 +1102,10 @@ public abstract class AbstractEndpoint<S,U> {
     }
 
 
+    /**
+     *  创建一个SocketProcessor
+     *  用来处理Acceptor 请求
+     */
     protected abstract SocketProcessorBase<S> createSocketProcessor(
             SocketWrapperBase<S> socketWrapper, SocketEvent event);
 

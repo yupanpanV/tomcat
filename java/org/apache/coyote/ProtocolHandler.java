@@ -37,6 +37,7 @@ public interface ProtocolHandler {
     /**
      * Return the adapter associated with the protocol handler.
      * @return the adapter
+     * Adapter 的功能 是Request/Response 与 ServletRequest/ServletResponse 的相互转化
      */
     public Adapter getAdapter();
 
@@ -82,6 +83,8 @@ public interface ProtocolHandler {
      * Initialise the protocol.
      *
      * @throws Exception If the protocol handler fails to initialise
+     *
+     * 初始化协议
      */
     public void init() throws Exception;
 

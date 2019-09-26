@@ -553,6 +553,7 @@ public abstract class AbstractProtocol<S> implements ProtocolHandler,
             logPortOffset();
         }
 
+        // JMX 相关
         if (oname == null) {
             // Component not pre-registered so register it
             oname = createObjectName();
@@ -567,10 +568,10 @@ public abstract class AbstractProtocol<S> implements ProtocolHandler,
                     getHandler().getGlobal(), rgOname, null);
         }
 
+        // 初始化 EndPoint 组件
         String endpointName = getName();
         endpoint.setName(endpointName.substring(1, endpointName.length()-1));
         endpoint.setDomain(domain);
-
         endpoint.init();
     }
 
@@ -582,6 +583,7 @@ public abstract class AbstractProtocol<S> implements ProtocolHandler,
             logPortOffset();
         }
 
+        // 启动 Endpoint 组件
         endpoint.start();
         monitorFuture = getUtilityExecutor().scheduleWithFixedDelay(
                 new Runnable() {

@@ -18,6 +18,12 @@ package org.apache.tomcat.util.net;
 
 import java.util.Objects;
 
+/**
+ *  Acceptor 与 Processor 沟通的桥梁
+ *
+ *  Acceptor 生成一个 SocketProcessor 提交到线程池
+ *  SocketProcessor 的run方法调用 Processor的process方法处理应用层协议
+ */
 public abstract class SocketProcessorBase<S> implements Runnable {
 
     protected SocketWrapperBase<S> socketWrapper;
