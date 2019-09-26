@@ -69,38 +69,48 @@ public class StandardService extends LifecycleMBeanBase implements Service {
 
     /**
      * The <code>Server</code> that owns this Service, if any.
+     *
+     * 上级组件
      */
     private Server server = null;
 
     /**
      * The property change support for this component.
+     *
+     * 用来实现观察者的
      */
     protected final PropertyChangeSupport support = new PropertyChangeSupport(this);
 
 
     /**
      * The set of Connectors associated with this Service.
+     * 连接器数组
      */
     protected Connector connectors[] = new Connector[0];
     private final Object connectorsLock = new Object();
 
     /**
      * The list of executors held by the service.
+     * 执行器数组
      */
     protected final ArrayList<Executor> executors = new ArrayList<>();
 
+
+    /**
+     *  下级组件 容器的 顶级容器
+     */
     private Engine engine = null;
 
     private ClassLoader parentClassLoader = null;
 
     /**
-     * Mapper.
+     *  路由信息的映射
      */
     protected final Mapper mapper = new Mapper();
 
 
     /**
-     * Mapper listener.
+     *  监听容器的变化并把信息更新到 Mapper 中
      */
     protected final MapperListener mapperListener = new MapperListener(this);
 
@@ -411,26 +421,33 @@ public class StandardService extends LifecycleMBeanBase implements Service {
     @Override
     protected void startInternal() throws LifecycleException {
 
+        // 打印日志
         if(log.isInfoEnabled())
             log.info(sm.getString("standardService.start.name", this.name));
         setState(LifecycleState.STARTING);
 
         // Start our defined Container first
+        // 先启动 engine 容器
+        // engine 容器会启动他的子容器
         if (engine != null) {
             synchronized (engine) {
                 engine.start();
             }
         }
 
+        // 启动线程池
         synchronized (executors) {
             for (Executor executor: executors) {
                 executor.start();
             }
         }
 
+        // 启动 mapper 监听器
         mapperListener.start();
 
         // Start our defined Connectors second
+        // 启动连接器
+        // 连接器会启动他的子组件 endPoint 等
         synchronized (connectorsLock) {
             for (Connector connector: connectors) {
                 // If it has already failed, don't try and start it
@@ -512,11 +529,13 @@ public class StandardService extends LifecycleMBeanBase implements Service {
 
         super.initInternal();
 
+        // 初始化 engine 组件
         if (engine != null) {
             engine.init();
         }
 
         // Initialize any Executors
+        // 初始化所有的线程池
         for (Executor executor : findExecutors()) {
             if (executor instanceof JmxEnabled) {
                 ((JmxEnabled) executor).setDomain(getDomain());
@@ -528,6 +547,7 @@ public class StandardService extends LifecycleMBeanBase implements Service {
         mapperListener.init();
 
         // Initialize our defined Connectors
+        // 初始化Connector，而Connector又会对ProtocolHandler进行初始化，开启应用端口的监听
         synchronized (connectorsLock) {
             for (Connector connector : connectors) {
                 connector.init();
