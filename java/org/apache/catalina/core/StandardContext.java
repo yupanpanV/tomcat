@@ -6187,7 +6187,7 @@ public class StandardContext extends ContainerBase
     protected void initInternal() throws LifecycleException {
         super.initInternal();
 
-        // Register the naming resources
+        // namingResources 初始化
         if (namingResources != null) {
             namingResources.init();
         }

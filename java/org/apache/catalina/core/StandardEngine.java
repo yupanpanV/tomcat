@@ -234,10 +234,16 @@ public class StandardEngine extends ContainerBase implements Engine {
     }
 
 
+    /**
+     *   注意注意  Engine的初始化 并没有 初始化子组件 Host  而是把 Host的初始化放在了 Start 阶段
+     *   在 LifeCycleBase 的 start 方法里面 初始化的
+     */
     @Override
     protected void initInternal() throws LifecycleException {
         // Ensure that a Realm is present before any attempt is made to start
         // one. This will create the default NullRealm if necessary.
+        // Realm(域)是用于对单个用户进行身份验证的底层安全领域的只读外观，并标识与这些用户相关联的安全角色。
+        //域可以在任何容器级别上附加，但是通常只附加到Context，或者更高级别的容器。
         getRealm();
         super.initInternal();
     }
@@ -258,7 +264,7 @@ public class StandardEngine extends ContainerBase implements Engine {
             log.info(sm.getString("standardEngine.start", ServerInfo.getServerInfo()));
         }
 
-        // Standard container startup
+        // Engine 容器的start 完全有父类实现
         super.startInternal();
     }
 

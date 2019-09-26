@@ -72,7 +72,7 @@ import org.apache.juli.logging.Log;
  *     resources, enabling custom linkages to existing server components when
  *     Catalina is embedded in a larger server.
  * </ul>
- *
+ * 所有容器都实现了container 接口
  * @author Craig R. McClanahan
  * @author Remy Maucherat
  */

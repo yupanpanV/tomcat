@@ -860,12 +860,15 @@ public abstract class ContainerBase extends LifecycleMBeanBase
 
     @Override
     protected void initInternal() throws LifecycleException {
+        // 重新配置 startStopExecutor 线程池
         reconfigureStartStopExecutor(getStartStopThreads());
+
         super.initInternal();
     }
 
 
     private void reconfigureStartStopExecutor(int threads) {
+        // 如果线程数是1 则执行初始化线程池
         if (threads == 1) {
             // Use a fake executor
             if (!(startStopExecutor instanceof InlineExecutorService)) {
@@ -893,6 +896,8 @@ public abstract class ContainerBase extends LifecycleMBeanBase
         // Start our subordinate components, if any
         logger = null;
         getLogger();
+
+        // 集群相关的  不知道干嘛的
         Cluster cluster = getClusterInternal();
         if (cluster instanceof Lifecycle) {
             ((Lifecycle) cluster).start();
@@ -902,15 +907,19 @@ public abstract class ContainerBase extends LifecycleMBeanBase
             ((Lifecycle) realm).start();
         }
 
-        // Start our child containers, if any
+        // 先启动子容器
+        // 把每一个子容器的启动包装成一个任务 提交到线程池 然后保存Future
         Container children[] = findChildren();
         List<Future<Void>> results = new ArrayList<>();
         for (int i = 0; i < children.length; i++) {
             results.add(startStopExecutor.submit(new StartChild(children[i])));
         }
 
+        // 用来储存所有容器启动的异常
         MultiThrowable multiThrowable = null;
 
+        // 阻塞式的获取所有子容器的启动异常
+        // 子容器存在启动异常 就抛异常退出
         for (Future<Void> result : results) {
             try {
                 result.get();
@@ -928,14 +937,17 @@ public abstract class ContainerBase extends LifecycleMBeanBase
                     multiThrowable.getThrowable());
         }
 
-        // Start the Valves in our pipeline (including the basic), if any
+        // 启动 Pipeline
         if (pipeline instanceof Lifecycle) {
             ((Lifecycle) pipeline).start();
         }
 
+        // 把自己生命周期状态更新为 STARTING 并处罚 STARTING 事件
         setState(LifecycleState.STARTING);
 
-        // Start our thread
+        // 让 Server组件 的 utilityExecutorWrapper 定时任务  定时执行 ContainerBackgroundProcessorMonitor 这个任务
+        // 这个任务 打开了 startStopExecutor 这个线程池
+        // startStopExecutor 这个线程池 执行子容器的 start 操作
         if (backgroundProcessorDelay > 0) {
             monitorFuture = Container.getService(ContainerBase.this).getServer()
                     .getUtilityExecutor().scheduleWithFixedDelay(

@@ -90,25 +90,28 @@ public class StandardPipeline extends LifecycleBase implements Pipeline {
 
 
     /**
-     * The basic Valve (if any) associated with this Pipeline.
+     *  最后一个 Valve
      */
     protected Valve basic = null;
 
 
     /**
-     * The Container with which this Pipeline is associated.
+     *  Pipeline 所附属的容器
      */
     protected Container container = null;
 
 
     /**
-     * The first valve associated with this Pipeline.
+     * 第一个Valve
      */
     protected Valve first = null;
 
 
     // --------------------------------------------------------- Public Methods
 
+    /**
+     *  如果所有的 Valve 都支持异步 则返回 true  否则返回false
+     */
     @Override
     public boolean isAsyncSupported() {
         Valve valve = (first!=null)?first:basic;
@@ -171,7 +174,7 @@ public class StandardPipeline extends LifecycleBase implements Pipeline {
     @Override
     protected synchronized void startInternal() throws LifecycleException {
 
-        // Start the Valves in our pipeline (including the basic), if any
+        // 启动所有的 Valve 并把 Valve 的生命周期状态 更新为 STARTING 触发 STARTING 事件
         Valve current = first;
         if (current == null) {
             current = basic;
@@ -332,11 +335,11 @@ public class StandardPipeline extends LifecycleBase implements Pipeline {
     @Override
     public void addValve(Valve valve) {
 
-        // Validate that we can add this Valve
+        // 给Valve 设置附属容器
         if (valve instanceof Contained)
             ((Contained) valve).setContainer(this.container);
 
-        // Start the new component if necessary
+        // 如果 Valve 状态为可用状态 并且 实现 Lifecycle 接口 则调用start 方法
         if (getState().isAvailable()) {
             if (valve instanceof Lifecycle) {
                 try {
@@ -347,7 +350,7 @@ public class StandardPipeline extends LifecycleBase implements Pipeline {
             }
         }
 
-        // Add this Valve to the set associated with this Pipeline
+        // 链式引用这个 Valve
         if (first == null) {
             first = valve;
             valve.setNext(basic);
@@ -362,15 +365,13 @@ public class StandardPipeline extends LifecycleBase implements Pipeline {
                 current = current.getNext();
             }
         }
-
+        // 触发容器 添加 Valve 事件
         container.fireContainerEvent(Container.ADD_VALVE_EVENT, valve);
     }
 
 
     /**
-     * Return the set of Valves in the pipeline associated with this
-     * Container, including the basic Valve (if any).  If there are no
-     * such Valves, a zero-length array is returned.
+     *  获取所有的value
      */
     @Override
     public Valve[] getValves() {
