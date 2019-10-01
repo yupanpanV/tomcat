@@ -63,7 +63,9 @@ public class Acceptor<U> implements Runnable {
         // Loop until we receive a shutdown command
         while (endpoint.isRunning()) {
 
-            // Loop if endpoint is paused
+            // 循环检测 endpoint 是否是暂停
+            // 如果是  则把自己也标记为暂停
+            // 也就是说 如果 endpoint 是暂停状态  则在这里自旋 等待 运行状态
             while (endpoint.isPaused() && endpoint.isRunning()) {
                 state = AcceptorState.PAUSED;
                 try {
@@ -73,25 +75,31 @@ public class Acceptor<U> implements Runnable {
                 }
             }
 
+            // 如果 endpoint 不是运行状态 则退出循环 （意味着本线程结束）
             if (!endpoint.isRunning()) {
                 break;
             }
+            // 把自己标记为运行状态
             state = AcceptorState.RUNNING;
 
             try {
                 //if we have reached max connections, wait
+                // 如果 endpoint 达到的最大连接数 就会被阻塞
                 endpoint.countUpOrAwaitConnection();
 
                 // Endpoint might have been paused while waiting for latch
                 // If that is the case, don't accept new connections
+                // 在阻塞的期间的 endpoint 可能被暂停了
+                // 如果是暂停状态 则直接进行下一次循环
                 if (endpoint.isPaused()) {
                     continue;
                 }
 
                 U socket = null;
                 try {
-                    // Accept the next incoming connection from the server
+                    // accept the next incoming connection from the server
                     // socket
+                    // 阻塞式的接收客户端连接
                     socket = endpoint.serverSocketAccept();
                 } catch (Exception ioe) {
                     // We didn't get a socket
@@ -108,14 +116,17 @@ public class Acceptor<U> implements Runnable {
                 // Successful accept, reset the error delay
                 errorDelay = 0;
 
-                // Configure the socket
+                // 如果 endpoint 是运行状态 则处理这个连接  否则 释放这个连接
                 if (endpoint.isRunning() && !endpoint.isPaused()) {
                     // setSocketOptions() will hand the socket off to
                     // an appropriate processor if successful
+
+                    // 处理这个连接  如果处理失败 则关闭这个连接
                     if (!endpoint.setSocketOptions(socket)) {
                         endpoint.closeSocket(socket);
                     }
                 } else {
+                    // 释放连接  （在Nio I/O 模型下 其实就是关闭连接）
                     endpoint.destroySocket(socket);
                 }
             } catch (Throwable t) {

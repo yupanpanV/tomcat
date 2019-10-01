@@ -159,7 +159,8 @@ public abstract class AbstractEndpoint<S,U> {
 
 
     /**
-     * counter for nr of connections handled by an endpoint
+     * 是连接控制器，它负责控制最大连接数
+     * NIO 模式下默认是 10000，达到这个阈值后，连接请求被拒绝
      */
     private volatile LimitLatch connectionLimitLatch = null;
 
@@ -172,14 +173,15 @@ public abstract class AbstractEndpoint<S,U> {
     }
 
     /**
-     * Thread used to accept new connections and pass them to worker threads.
      *
-     * 用来监听socket请求
+     * 跑在一个单独的线程里，它在一个死循环里调用 accept 方法来接收新连接
+     * 一旦有新的连接请求到来，accept 方法返回一个 Channel 对象
+     * 接着把 Channel 对象交给 Poller 去处理
      */
     protected Acceptor<U> acceptor;
 
     /**
-     * Cache for SocketProcessor objects
+     *  线程安全的栈 用来保存 SocketProcessor
      */
     protected SynchronizedStack<SocketProcessorBase<S>> processorCache;
 
@@ -1074,18 +1076,25 @@ public abstract class AbstractEndpoint<S,U> {
                 return false;
             }
             SocketProcessorBase<S> sc = null;
+            // 尝试从缓存中取出一个 SocketProcessor
             if (processorCache != null) {
                 sc = processorCache.pop();
             }
+            // 缓存没有则 创建一个
             if (sc == null) {
                 sc = createSocketProcessor(socketWrapper, event);
             } else {
+                // 缓存有 则重置一下
                 sc.reset(socketWrapper, event);
             }
+
+            // 获取线程池
             Executor executor = getExecutor();
             if (dispatch && executor != null) {
+                // 如果是转发 则提交到线程池
                 executor.execute(sc);
             } else {
+                // 否则由当前线程执行
                 sc.run();
             }
         } catch (RejectedExecutionException ree) {
@@ -1140,9 +1149,12 @@ public abstract class AbstractEndpoint<S,U> {
 
     public final void init() throws Exception {
         if (bindOnInit) {
+            // 初始化socket
             bindWithCleanup();
             bindState = BindState.BOUND_ON_INIT;
         }
+
+        // JMX 相关
         if (this.domain != null) {
             // Register endpoint (as ThreadPool - historical name)
             oname = new ObjectName(domain + ":type=ThreadPool,name=\"" + getName() + "\"");
@@ -1212,6 +1224,7 @@ public abstract class AbstractEndpoint<S,U> {
 
 
     public final void start() throws Exception {
+
         if (bindState == BindState.UNBOUND) {
             bindWithCleanup();
             bindState = BindState.BOUND_ON_START;
@@ -1221,6 +1234,7 @@ public abstract class AbstractEndpoint<S,U> {
 
 
     protected void startAcceptorThread() {
+        // 创建 acceptor 和 acceptor 线程
         acceptor = new Acceptor<>(this);
         String threadName = getName() + "-Acceptor";
         acceptor.setThreadName(threadName);

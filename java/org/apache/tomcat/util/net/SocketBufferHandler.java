@@ -20,6 +20,9 @@ import java.nio.ByteBuffer;
 
 import org.apache.tomcat.util.buf.ByteBufferUtils;
 
+/**
+ *
+ */
 public class SocketBufferHandler {
 
     static SocketBufferHandler EMPTY = new SocketBufferHandler(0, 0, false) {
@@ -28,12 +31,25 @@ public class SocketBufferHandler {
         }
     };
 
+    /**
+     *  true 表示 读缓冲区可读
+     *  false 表示 度缓冲区可写
+     */
     private volatile boolean readBufferConfiguredForWrite = true;
+    /**
+     *  读缓冲区
+     */
     private volatile ByteBuffer readBuffer;
 
     private volatile boolean writeBufferConfiguredForWrite = true;
+    /**
+     *  写缓冲区
+     */
     private volatile ByteBuffer writeBuffer;
 
+    /**
+     *  是否是直接内存
+     */
     private final boolean direct;
 
     public SocketBufferHandler(int readBufferSize, int writeBufferSize,
@@ -49,11 +65,19 @@ public class SocketBufferHandler {
     }
 
 
+    /**
+     *  让读缓冲区可写
+     *  如果读缓冲区还有剩余的没有读完的 则压缩一下
+     *  如果读缓冲区已经读完了 则 clear
+     */
     public void configureReadBufferForWrite() {
         setReadBufferConfiguredForWrite(true);
     }
 
 
+    /**
+     *   直接将度缓冲区翻转为可读
+     */
     public void configureReadBufferForRead() {
         setReadBufferConfiguredForWrite(false);
     }
@@ -93,11 +117,19 @@ public class SocketBufferHandler {
     }
 
 
+    /**
+     *  让写缓冲区可写
+     *  如果写缓冲区还有没有读完的 则压缩一下
+     *  如果写缓冲区已经读完了 则 clear
+     */
     public void configureWriteBufferForWrite() {
         setWriteBufferConfiguredForWrite(true);
     }
 
 
+    /**
+     *  把写缓冲区翻转为可读
+     */
     public void configureWriteBufferForRead() {
         setWriteBufferConfiguredForWrite(false);
     }
