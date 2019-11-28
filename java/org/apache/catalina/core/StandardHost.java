@@ -827,6 +827,10 @@ public class StandardHost extends ContainerBase implements Host {
                         break;
                     }
                 }
+
+                // 没有找到这个 valve  就反射创建一个valve
+                // 然后添加到 Pipeline 中，注意是添加到 basic valve 的前面
+                // 默认情况下，first valve 是 AccessLogValve，basic 是 StandardHostValve
                 if(!found) {
                     Valve valve =
                         (Valve) Class.forName(errorValve).getConstructor().newInstance();

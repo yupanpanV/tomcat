@@ -270,6 +270,10 @@ public abstract class ContainerBase extends LifecycleMBeanBase
      * children associated with this container.
      */
     private int startStopThreads = 1;
+    /**
+     * 这个线程池只需要在容器启动和停止的时候发挥作用，没必要时时刻刻处理任务队列
+     * 所以其内部线程在超时获取任务后会退出而被销毁 超时时间10秒
+     */
     protected ExecutorService startStopExecutor;
 
 
@@ -861,6 +865,7 @@ public abstract class ContainerBase extends LifecycleMBeanBase
     @Override
     protected void initInternal() throws LifecycleException {
         // 重新配置 startStopExecutor 线程池
+        // 默认核心线程数是 1
         reconfigureStartStopExecutor(getStartStopThreads());
 
         super.initInternal();
@@ -874,6 +879,8 @@ public abstract class ContainerBase extends LifecycleMBeanBase
             if (!(startStopExecutor instanceof InlineExecutorService)) {
                 startStopExecutor = new InlineExecutorService();
             }
+
+            // 如果线程数不是1  就使用server的公共线程池
         } else {
             // Delegate utility execution to the Service
             Server server = Container.getService(this).getServer();
@@ -1134,6 +1141,7 @@ public abstract class ContainerBase extends LifecycleMBeanBase
         if (!getState().isAvailable())
             return;
 
+        // 1.执行容器中Cluster组件的周期性任务
         Cluster cluster = getClusterInternal();
         if (cluster != null) {
             try {
@@ -1143,6 +1151,8 @@ public abstract class ContainerBase extends LifecycleMBeanBase
                         cluster), e);
             }
         }
+
+        // 2.执行容器中Realm组件的周期性任务
         Realm realm = getRealmInternal();
         if (realm != null) {
             try {
@@ -1151,6 +1161,8 @@ public abstract class ContainerBase extends LifecycleMBeanBase
                 log.warn(sm.getString("containerBase.backgroundProcess.realm", realm), e);
             }
         }
+
+        // 3.执行容器中Valve组件的周期性任务
         Valve current = pipeline.getFirst();
         while (current != null) {
             try {
@@ -1160,6 +1172,8 @@ public abstract class ContainerBase extends LifecycleMBeanBase
             }
             current = current.getNext();
         }
+
+        // 4. 触发容器的"周期事件"，Host容器的监听器HostConfig就靠它来调用
         fireLifecycleEvent(Lifecycle.PERIODIC_EVENT, null);
     }
 
@@ -1290,6 +1304,9 @@ public abstract class ContainerBase extends LifecycleMBeanBase
                     log.error(sm.getString("containerBase.backgroundProcess.error"), e);
                 }
             }
+
+            // Tomcat 通过开启后台线程，使得各个层次的容器组件都有机会完成一些周期性任务
+            // 该线程会链式调用子组件的 backgroundProcess 方法
             backgroundProcessorFuture = Container.getService(this).getServer().getUtilityExecutor()
                     .scheduleWithFixedDelay(new ContainerBackgroundProcessor(),
                             backgroundProcessorDelay, backgroundProcessorDelay,
@@ -1344,6 +1361,7 @@ public abstract class ContainerBase extends LifecycleMBeanBase
 
         @Override
         public void run() {
+            // 请注意这里传入的参数是"宿主类"的实例
             processChildren(ContainerBase.this);
         }
 
@@ -1362,7 +1380,11 @@ public abstract class ContainerBase extends LifecycleMBeanBase
                     // is performed under the web app's class loader
                     originalClassLoader = ((Context) container).bind(false, null);
                 }
+                // 1. 调用当前容器的backgroundProcess方法。
                 container.backgroundProcess();
+
+                // 2. 遍历所有的子容器，递归调用processChildren
+                // 这样当前容器的子孙都会被处理
                 Container[] children = container.findChildren();
                 for (int i = 0; i < children.length; i++) {
                     if (children[i].getBackgroundProcessorDelay() <= 0) {

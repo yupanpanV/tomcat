@@ -85,6 +85,8 @@ public class Acceptor<U> implements Runnable {
             try {
                 //if we have reached max connections, wait
                 // 如果 endpoint 达到的最大连接数 就会被阻塞
+                // 接收连接之前先要获取锁
+                // 调用connectionLimitLatch#acquireShare 方法
                 endpoint.countUpOrAwaitConnection();
 
                 // Endpoint might have been paused while waiting for latch

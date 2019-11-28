@@ -862,6 +862,7 @@ public abstract class WebappClassLoaderBase extends URLClassLoader
                         new PrivilegedFindClassByName(name);
                     clazz = AccessController.doPrivileged(dp);
                 } else {
+                    // 1. 先在Web应用目录下查找类
                     clazz = findClassInternal(name);
                 }
             } catch(AccessControlException ace) {
@@ -875,6 +876,7 @@ public abstract class WebappClassLoaderBase extends URLClassLoader
             }
             if ((clazz == null) && hasExternalRepositories) {
                 try {
+                    // 2. 如果在本地目录没有找到，交给父加载器去查找
                     clazz = super.findClass(name);
                 } catch(AccessControlException ace) {
                     log.warn(sm.getString("webappClassLoader.securityException", name,
@@ -886,6 +888,8 @@ public abstract class WebappClassLoaderBase extends URLClassLoader
                     throw e;
                 }
             }
+
+            // 3. 如果父类也没找到，抛出ClassNotFoundException
             if (clazz == null) {
                 if (log.isDebugEnabled())
                     log.debug("    --> Returning ClassNotFoundException");
@@ -1217,6 +1221,27 @@ public abstract class WebappClassLoaderBase extends URLClassLoader
     @Override
     public Class<?> loadClass(String name, boolean resolve) throws ClassNotFoundException {
 
+        /*
+         * 1.先在本地 Cache 查找该类是否已经加载过，也就是说 Tomcat 的类加载器是否已经加载过这个类。
+         *
+         * 2.如果 Tomcat 类加载器没有加载过这个类，再看看系统类加载器是否加载过。
+         *
+         * 3.如果都没有，就让 ExtClassLoader 去加载，这一步比较关键，目的防止 Web 应用自己的类覆盖
+         *       JRE 的核心类。因为 Tomcat 需要打破双亲委托机制，假如 Web 应用里自定义了一个叫 Object 的类，
+         *       如果先加载这个 Object 类，就会覆盖 JRE 里面的那个 Object 类，
+         *       这就是为什么 Tomcat 的类加载器会优先尝试用 ExtClassLoader 去加载，
+         *       因为 ExtClassLoader 会委托给 BootstrapClassLoader 去加载，
+         *       BootstrapClassLoader 发现自己已经加载了 Object 类，直接返回给 Tomcat 的类加载器，
+         *       这样 Tomcat 的类加载器就不会去加载 Web 应用下的 Object 类了，也就避免了覆盖 JRE 核心类的问题。
+         *
+         * 4.如果 ExtClassLoader 加载器加载失败，也就是说 JRE 核心类中没有这类，那么就在本地 Web 应用目录下查找并加载。
+         *
+         * 5.如果本地目录下没有这个类，说明不是 Web 应用自己定义的类，那么由系统类加载器去加载。这里请你注意，
+         *       Web 应用是通过Class.forName调用交给系统类加载器的，因为Class.forName的默认加载器就是系统类加载器。
+         *
+         * 6.如果上述加载过程全部失败，抛出 ClassNotFound 异常
+         */
+
         synchronized (JreCompat.isGraalAvailable() ? this : getClassLoadingLock(name)) {
             if (log.isDebugEnabled())
                 log.debug("loadClass(" + name + ", " + resolve + ")");
@@ -1226,6 +1251,7 @@ public abstract class WebappClassLoaderBase extends URLClassLoader
             checkStateForClassLoading(name);
 
             // (0) Check our previously loaded local class cache
+            // 1. 先在本地cache查找该类是否已经加载过
             clazz = findLoadedClass0(name);
             if (clazz != null) {
                 if (log.isDebugEnabled())
@@ -1236,6 +1262,7 @@ public abstract class WebappClassLoaderBase extends URLClassLoader
             }
 
             // (0.1) Check our previously loaded class cache
+            // 2. 从系统类加载器的cache中查找是否加载过
             clazz = JreCompat.isGraalAvailable() ? null : findLoadedClass(name);
             if (clazz != null) {
                 if (log.isDebugEnabled())
@@ -1250,6 +1277,7 @@ public abstract class WebappClassLoaderBase extends URLClassLoader
             //       SRV.10.7.2
             String resourceName = binaryNameToPath(name, false);
 
+            // 3. 尝试用ExtClassLoader类加载器类加载，为什么？
             ClassLoader javaseLoader = getJavaseClassLoader();
             boolean tryLoadingFromJavaseLoader;
             try {
@@ -1280,6 +1308,7 @@ public abstract class WebappClassLoaderBase extends URLClassLoader
                 tryLoadingFromJavaseLoader = true;
             }
 
+            // 4. 尝试在本地目录搜索class并加载
             if (tryLoadingFromJavaseLoader) {
                 try {
                     clazz = javaseLoader.loadClass(name);
@@ -1314,6 +1343,7 @@ public abstract class WebappClassLoaderBase extends URLClassLoader
                 if (log.isDebugEnabled())
                     log.debug("  Delegating to parent classloader1 " + parent);
                 try {
+                    // 5. 尝试用系统类加载器(也就是AppClassLoader)来加载
                     clazz = Class.forName(name, false, parent);
                     if (clazz != null) {
                         if (log.isDebugEnabled())
@@ -1362,6 +1392,7 @@ public abstract class WebappClassLoaderBase extends URLClassLoader
             }
         }
 
+        // 6. 上述过程都加载失败，抛出异常
         throw new ClassNotFoundException(name);
     }
 

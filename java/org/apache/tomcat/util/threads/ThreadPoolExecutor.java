@@ -45,6 +45,9 @@ public class ThreadPoolExecutor extends java.util.concurrent.ThreadPoolExecutor 
      * in the queue and tasks that have been handed to a worker thread but the
      * latter did not start executing the task yet.
      * This number is always greater or equal to {@link #getActiveCount()}.
+     *
+     * 已经提交到了线程池
+     *
      */
     private final AtomicInteger submittedCount = new AtomicInteger(0);
     private final AtomicLong lastContextStoppedTime = new AtomicLong(0L);
@@ -162,13 +165,20 @@ public class ThreadPoolExecutor extends java.util.concurrent.ThreadPoolExecutor 
      * @throws NullPointerException if command or unit is null
      */
     public void execute(Runnable command, long timeout, TimeUnit unit) {
+        // 正常情况下 submittedCount 的值为0
+        // 如果submittedCount为负数 表示tomcat 线程池丢弃了任务的个数
         submittedCount.incrementAndGet();
         try {
             super.execute(command);
         } catch (RejectedExecutionException rx) {
             if (super.getQueue() instanceof TaskQueue) {
+
+                // 获取任务队列
                 final TaskQueue queue = (TaskQueue)super.getQueue();
                 try {
+                    // 尝试往队列里塞任务
+
+                    // 如果没有塞进去 就拒绝任务
                     if (!queue.force(command, timeout, unit)) {
                         submittedCount.decrementAndGet();
                         throw new RejectedExecutionException(sm.getString("threadPoolExecutor.queueFull"));

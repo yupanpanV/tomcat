@@ -1076,6 +1076,8 @@ public abstract class AbstractEndpoint<S,U> {
                 return false;
             }
             SocketProcessorBase<S> sc = null;
+
+            // 从对象池取出对象
             // 尝试从缓存中取出一个 SocketProcessor
             if (processorCache != null) {
                 sc = processorCache.pop();

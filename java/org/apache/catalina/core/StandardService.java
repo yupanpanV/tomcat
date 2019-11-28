@@ -535,7 +535,7 @@ public class StandardService extends LifecycleMBeanBase implements Service {
         }
 
         // Initialize any Executors
-        // 初始化所有的线程池
+        // 初始化所有的执行器
         for (Executor executor : findExecutors()) {
             if (executor instanceof JmxEnabled) {
                 ((JmxEnabled) executor).setDomain(getDomain());

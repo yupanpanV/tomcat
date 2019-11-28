@@ -286,6 +286,10 @@ public class HostConfig implements LifecycleListener {
     @Override
     public void lifecycleEvent(LifecycleEvent event) {
 
+        //  热部署
+        // 如果原来 Web 应用目录被删掉了，就把相应 Context 容器整个销毁掉。
+        // 是否有新的 Web 应用目录放进来了，或者有新的 WAR 包放进来了，就部署相应的 Web 应用。
+
         // Identify the host we are associated with
         try {
             host = (Host) event.getLifecycle();
@@ -420,12 +424,17 @@ public class HostConfig implements LifecycleListener {
 
         File appBase = host.getAppBaseFile();
         File configBase = host.getConfigBaseFile();
+
+        // 过滤出 webapp 要部署应用的目录
         String[] filteredAppPaths = filterAppPaths(appBase.list());
         // Deploy XML descriptors from configBase
+        // 部署 xml 描述文件
         deployDescriptors(configBase, configBase.list());
         // Deploy WARs
+        // 解压 war 包，但是这里还不会去启动应用
         deployWARs(appBase, filteredAppPaths);
         // Deploy expanded folders
+        // 处理已经存在的目录，前面解压的 war 包不会再行处理
         deployDirectories(appBase, filteredAppPaths);
 
     }
@@ -1572,6 +1581,7 @@ public class HostConfig implements LifecycleListener {
             host.setAutoDeploy(false);
         }
 
+        // 部署app
         if (host.getDeployOnStartup())
             deployApps();
 
@@ -1603,10 +1613,12 @@ public class HostConfig implements LifecycleListener {
     protected void check() {
 
         if (host.getAutoDeploy()) {
+            // 检查这个Host下所有已经部署的Web应用
             // Check for resources modification to trigger redeployment
             DeployedApplication[] apps =
                 deployed.values().toArray(new DeployedApplication[0]);
             for (int i = 0; i < apps.length; i++) {
+                //检查Web应用目录是否有变化
                 if (!isServiced(apps[i].name))
                     checkResources(apps[i], false);
             }
@@ -1616,6 +1628,7 @@ public class HostConfig implements LifecycleListener {
                 checkUndeploy();
             }
 
+            // 执行部署
             // Hotdeploy applications
             deployApps();
         }

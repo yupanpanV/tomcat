@@ -262,6 +262,9 @@ public class NioEndpoint extends AbstractJsseEndpoint<NioChannel,SocketChannel> 
             running = true;
             paused = false;
 
+
+            // 下面3个是对象池的使用
+
             // 创建一个线程安全的栈 用来缓存 SocketProcessor
             if (socketProperties.getProcessorCache() != 0) {
                 processorCache = new SynchronizedStack<>(SynchronizedStack.DEFAULT_SIZE,
@@ -432,6 +435,7 @@ public class NioEndpoint extends AbstractJsseEndpoint<NioChannel,SocketChannel> 
 
             NioChannel channel = null;
             // 先尝试从缓存栈里面弹出一个 NioChannel
+            // 从对象池中取出一个NioChannel
             if (nioChannels != null) {
                 channel = nioChannels.pop();
             }
@@ -457,6 +461,16 @@ public class NioEndpoint extends AbstractJsseEndpoint<NioChannel,SocketChannel> 
                 channel.reset();
             }
 
+            /*
+             *  Http11Processor 并不是直接读取 Channel 的。
+             *  这是因为 Tomcat 支持同步非阻塞 I/O 模型和异步 I/O 模型，
+             *  在 Java API 中，相应的 Channel 类也是不一样的，
+             *  比如有 AsynchronousSocketChannel 和 SocketChannel，
+             *  为了对 Http11Processor 屏蔽这些差异，
+             *  Tomcat 设计了一个包装类叫作 SocketWrapper，
+             *  Http11Processor 只调用 SocketWrapper 的方法去读写数据
+             */
+
             // 创建 NioChannel 与 Endpoint 的包装器
             NioSocketWrapper socketWrapper = new NioSocketWrapper(channel, this);
             // NioChannel 引用 NioSocketWrapper
@@ -471,6 +485,7 @@ public class NioEndpoint extends AbstractJsseEndpoint<NioChannel,SocketChannel> 
             socketWrapper.setSecure(isSSLEnabled());
 
             // 把Nio 注册到 轮询器上
+            // 在同一时刻只有一个线程执行这个操作  所以是线程安全的
             poller.register(channel, socketWrapper);
             return true;
         } catch (Throwable t) {
@@ -740,7 +755,7 @@ public class NioEndpoint extends AbstractJsseEndpoint<NioChannel,SocketChannel> 
             // 但是此时还没有注册到多路复用器上去
             socketWrapper.interestOps(SelectionKey.OP_READ);//this is what OP_REGISTER turns into.
 
-
+            // 对象池取出一个对象
             // 尝试从缓存栈里弹出一个轮询器事件
             PollerEvent r = null;
             if (eventCache != null) {
@@ -791,6 +806,13 @@ public class NioEndpoint extends AbstractJsseEndpoint<NioChannel,SocketChannel> 
          */
         @Override
         public void run() {
+
+            // Poller 线程的主要职责
+            // 1. 消费events队列的事件
+            //     把事件中的SocketChannel 注册到多路复用器上
+            // 2. 检测多路复用器上已经就绪的I/O事件
+            //     处理这些事件()
+
             // Loop until destroy() is called
             // 循环检测是否有事件需要处理
             while (true) {
@@ -802,7 +824,7 @@ public class NioEndpoint extends AbstractJsseEndpoint<NioChannel,SocketChannel> 
                     // 如果是正常的
                     if (!close) {
 
-                        // 处理同步队列中的轮询事件
+                        // 消费events队列的事件  把 SocketChannel 注册到多路复用器上
                         hasEvents = events();
 
                         // 拉取多路复用器上的事件
@@ -822,7 +844,7 @@ public class NioEndpoint extends AbstractJsseEndpoint<NioChannel,SocketChannel> 
                     // 如果轮询器是关闭的 则关闭多路复用器
                     if (close) {
 
-                        // 轮询器为关闭关注状态 也要处理同步队列中的轮询事件
+                        // 轮询器为关闭关注状态 也要消费events队列的事件
                         events();
 
                         // todo
@@ -872,6 +894,7 @@ public class NioEndpoint extends AbstractJsseEndpoint<NioChannel,SocketChannel> 
                 timeout(keyCount,hasEvents);
             }
 
+            // 未关闭 Endpoint做准备
             getStopLatch().countDown();
         }
 
@@ -890,15 +913,22 @@ public class NioEndpoint extends AbstractJsseEndpoint<NioChannel,SocketChannel> 
                     cancelledKey(sk, socketWrapper);
                 } else if (sk.isValid() && socketWrapper != null) {
 
-
+                    // 如果SocketChannel 可读或者可写
                     if (sk.isReadable() || sk.isWritable()) {
+
+                        // 处理文件请求
                         if (socketWrapper.getSendfileData() != null) {
                             processSendfile(sk, socketWrapper, false);
+
+
+                            // 处理普通的请求
                         } else {
                             // todo
                             unreg(sk, socketWrapper, sk.readyOps());
                             boolean closeSocket = false;
                             // Read goes before write
+
+                            // 处理普通读请求
                             if (sk.isReadable()) {
 
                                 // 存在 readOperation 则 readOperation处理
@@ -912,6 +942,8 @@ public class NioEndpoint extends AbstractJsseEndpoint<NioChannel,SocketChannel> 
                                     closeSocket = true;
                                 }
                             }
+
+                            // 处理普通写请求
                             if (!closeSocket && sk.isWritable()) {
                                 if (socketWrapper.writeOperation != null) {
                                     if (!socketWrapper.writeOperation.process()) {
@@ -921,6 +953,8 @@ public class NioEndpoint extends AbstractJsseEndpoint<NioChannel,SocketChannel> 
                                     closeSocket = true;
                                 }
                             }
+
+                            // 取消SocketChannel
                             if (closeSocket) {
                                 cancelledKey(sk, socketWrapper);
                             }
@@ -1694,6 +1728,7 @@ public class NioEndpoint extends AbstractJsseEndpoint<NioChannel,SocketChannel> 
 
                 try {
                     if (key != null) {
+                        // 三次握手完成
                         if (socket.isHandshakeComplete()) {
                             // No TLS handshaking required. Let the handler
                             // process this socket / event combination.
@@ -1721,6 +1756,8 @@ public class NioEndpoint extends AbstractJsseEndpoint<NioChannel,SocketChannel> 
                 } catch (CancelledKeyException ckx) {
                     handshake = -1;
                 }
+
+                // 握手完成 开始处理请求
                 if (handshake == 0) {
                     SocketState state = SocketState.OPEN;
                     // Process the request from this socket

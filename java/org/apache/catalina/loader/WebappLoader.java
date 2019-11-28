@@ -285,11 +285,14 @@ public class WebappLoader extends LifecycleMBeanBase
      */
     @Override
     public void backgroundProcess() {
+
+        // 判断是否可以重新加载
         if (reloadable && modified()) {
             try {
                 Thread.currentThread().setContextClassLoader
                     (WebappLoader.class.getClassLoader());
                 if (context != null) {
+                    // 调用 StandardContext#reload 方法
                     context.reload();
                 }
             } finally {

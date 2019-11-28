@@ -224,7 +224,7 @@ public interface Server extends Lifecycle {
 
     /**
      * Add a new Service to the set of defined Services.
-     *
+     * 添加子组件 Server组件的子组件是 Service组件
      * @param service The Service to be added
      */
     public void addService(Service service);

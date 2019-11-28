@@ -552,7 +552,7 @@ public class Catalina {
         // 记录启动时间
         long t1 = System.nanoTime();
 
-        // 检查  java.io.tmpdir 这个属性是否存在
+        // 检查  java.io.tmpdir 这个文件夹是否存在
         initDirs();
 
         // Before digester - it may be needed
@@ -561,13 +561,17 @@ public class Catalina {
 
         // Set configuration source
         // 设置配置源
+        // /Users/pan/Desktop/hljx/test/tomcat-1/tomcat
+        // conf/server.xml
         ConfigFileLoader.setSource(new CatalinaBaseConfigurationSource(Bootstrap.getCatalinaBaseFile(), getConfigFile()));
 
         // server.xml 文件的抽象
         File file = configFile();
 
         // Create and execute our Digester
-        // 定义解析server.xml的配置，告诉Digester哪个xml标签应该解析成什么类
+        // 首先尝试加载conf/server.xml，省略部分代码......
+        // 如果不存在conf/server.xml，则加载server-embed.xml(该xml在catalina.jar中)
+        // 内部会创建server等各个组件并依赖赋值
         Digester digester = createStartDigester();
 
         try (
@@ -578,6 +582,7 @@ public class Catalina {
             InputStream inputStream = resource.getInputStream();
             InputSource inputSource = new InputSource(resource.getURI().toURL().toString());
             inputSource.setByteStream(inputStream);
+            // 把Catalina作为一个顶级实例
             digester.push(this);
             // 解析 server.xml
             // 解析过程会实例化各个组件，比如Server、Container、Connector等

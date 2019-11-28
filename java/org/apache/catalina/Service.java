@@ -40,6 +40,7 @@ public interface Service extends Lifecycle {
     /**
      * @return the <code>Engine</code> that handles requests for all
      * <code>Connectors</code> associated with this Service.
+     * Engine 为最顶层容器
      */
     public Engine getContainer();
 
@@ -65,6 +66,7 @@ public interface Service extends Lifecycle {
 
     /**
      * @return the <code>Server</code> with which we are associated (if any).
+     * Server 为上级组件
      */
     public Server getServer();
 
@@ -108,7 +110,7 @@ public interface Service extends Lifecycle {
 
     /**
      * Find and return the set of Connectors associated with this Service.
-     *
+     * 连接器
      * @return the set of associated Connectors
      */
     public Connector[] findConnectors();
@@ -148,6 +150,7 @@ public interface Service extends Lifecycle {
     public void removeExecutor(Executor ex);
 
     /**
+     * Mapper 组件 用来记录路由的映射信息
      * @return the mapper associated with this Service.
      */
     Mapper getMapper();

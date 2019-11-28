@@ -201,12 +201,13 @@ public final class StandardServer extends LifecycleMBeanBase implements Server {
     protected boolean utilityThreadsAsDaemon = false;
 
     /**
+     * 公共线程池
      * Utility executor with scheduling capabilities.
      */
     private ScheduledThreadPoolExecutor utilityExecutor = null;
 
     /**
-     * Utility executor wrapper.
+     * 公共线程池的包装对象
      */
     private ScheduledExecutorService utilityExecutorWrapper = null;
 
@@ -955,6 +956,7 @@ public final class StandardServer extends LifecycleMBeanBase implements Server {
                     new Runnable() {
                         @Override
                         public void run() {
+                            System.out.println("测试测试");
                             startPeriodicLifecycleEvent();
                         }
                     }, 0, 60, TimeUnit.SECONDS);
@@ -963,6 +965,7 @@ public final class StandardServer extends LifecycleMBeanBase implements Server {
 
 
     protected void startPeriodicLifecycleEvent() {
+        // 如果 periodicLifecycleEventFuture 为空 或者 periodicLifecycleEventFuture 已经完成
         if (periodicLifecycleEventFuture == null || (periodicLifecycleEventFuture != null && periodicLifecycleEventFuture.isDone())) {
             if (periodicLifecycleEventFuture != null && periodicLifecycleEventFuture.isDone()) {
                 // There was an error executing the scheduled task, get it and log it
@@ -1033,7 +1036,7 @@ public final class StandardServer extends LifecycleMBeanBase implements Server {
         // Initialize utility executor
         // 初始化 utility 线程池
         reconfigureUtilityExecutor(getUtilityThreadsInternal(utilityThreads));
-        // 注册线程池
+        // 线程池注册给JMX监控
         register(utilityExecutor, "type=UtilityExecutor");
 
         // Register global String cache
@@ -1058,6 +1061,7 @@ public final class StandardServer extends LifecycleMBeanBase implements Server {
         // Populate the extension validator with JARs from common and shared
         // class loaders
         if (getCatalina() != null) {
+            // 获取Catalina的父加载器
             ClassLoader cl = getCatalina().getParentClassLoader();
             // Walk the class loader hierarchy. Stop at the system class loader.
             // This will add the shared (if present) and common class loaders
@@ -1083,7 +1087,9 @@ public final class StandardServer extends LifecycleMBeanBase implements Server {
                 cl = cl.getParent();
             }
         }
-        // Initialize our defined Services
+
+
+        // 父组件Server 初始化子组件Service组件
         for (int i = 0; i < services.length; i++) {
             services[i].init();
         }

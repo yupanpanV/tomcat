@@ -69,6 +69,11 @@ public final class Bootstrap {
     private static final Pattern PATH_PATTERN = Pattern.compile("(\".*?\")|(([^,])*)");
 
     static {
+
+        // 主要是确定应用程序所在目录
+
+
+
         // Will always be non-null
         String userDir = System.getProperty("user.dir");
 
@@ -270,7 +275,7 @@ public final class Bootstrap {
 
         // 加载 Catalina 这个类
         Class<?> startupClass = catalinaLoader.loadClass("org.apache.catalina.startup.Catalina");
-        // 反射创建这个类
+        // 反射创建Catalina
         Object startupInstance = startupClass.getConstructor().newInstance();
 
         // Set the shared extensions class loader
@@ -304,7 +309,7 @@ public final class Bootstrap {
      */
     private void load(String[] arguments) throws Exception {
 
-        // Call the load() method
+        // 调用Catalina#load 方法
         String methodName = "load";
         Object param[];
         Class<?> paramTypes[];
